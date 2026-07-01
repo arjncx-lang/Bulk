@@ -1,6 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+}
+
+val keystorePropsFile = file(System.getProperty("user.home") + "/Documents/bulk-keystore/bulk-release.keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) {
+        keystorePropsFile.inputStream().use { load(it) }
+    }
 }
 
 android {
@@ -21,11 +30,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropsFile.exists()) {
+                storeFile = file(System.getProperty("user.home") + "/Documents/bulk-keystore/bulk-release.jks")
+                storePassword = keystoreProps["STOREPASS"] as String
+                keyAlias = keystoreProps["ALIAS"] as String
+                keyPassword = keystoreProps["KEYPASS"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
             optimization {
                 enable = false
             }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
