@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,13 +42,13 @@ fun RepCounterScreen() {
     val cs    = MaterialTheme.colorScheme
     val repo  = remember { WorkoutRepository(ctx) }
 
-    var count        by remember { mutableIntStateOf(0) }
-    var selected     by remember { mutableStateOf<ExerciseItem?>(null) }
-    var showPicker   by remember { mutableStateOf(false) }
-    var showHowTo    by remember { mutableStateOf(false) }
-    var autoLogShown by remember { mutableStateOf(false) }
-    var savedToast   by remember { mutableStateOf(false) }
-    var bumpKey      by remember { mutableIntStateOf(0) }
+    var count      by remember { mutableIntStateOf(0) }
+    var selected   by remember { mutableStateOf<ExerciseItem?>(null) }
+    var showPicker by remember { mutableStateOf(false) }
+    var showHowTo  by remember { mutableStateOf(false) }
+    var goalToast  by remember { mutableStateOf(false) }
+    var bumpKey    by remember { mutableIntStateOf(0) }
+    var sessionId  by remember { mutableLongStateOf(0L) }
 
     val haptic = LocalHapticFeedback.current
     val done   = selected != null && count >= selected!!.target
@@ -55,19 +56,24 @@ fun RepCounterScreen() {
 
     val ringColor by animateColorAsState(if (done) cs.secondary else accent, tween(500), label = "rc")
 
+    // Every rep is persisted (debounced): one log per session, updated as you go.
+    LaunchedEffect(count, selected) {
+        val ex = selected ?: return@LaunchedEffect
+        if (count <= 0) return@LaunchedEffect
+        if (sessionId == 0L) sessionId = System.currentTimeMillis()
+        delay(600)
+        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        repo.upsertLog(WorkoutLog(id = sessionId, dateKey = today,
+            timestamp = sessionId, exercise = ex.name,
+            type = "bodyweight", sets = 1, reps = count, weightKg = 0f))
+    }
+
     LaunchedEffect(done) {
-        if (!done) { autoLogShown = false; return@LaunchedEffect }
-        if (!autoLogShown) {
-            autoLogShown = true
+        if (done) {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-            repo.addLog(WorkoutLog(id = System.currentTimeMillis(), dateKey = today,
-                timestamp = System.currentTimeMillis(), exercise = selected!!.name,
-                type = "bodyweight", sets = 1, reps = count, weightKg = 0f))
-            savedToast = true
+            goalToast = true; delay(1800); goalToast = false
         }
     }
-    LaunchedEffect(savedToast) { if (savedToast) { delay(1800); savedToast = false } }
 
     fun hit(n: Int) { count += n; bumpKey++; haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
 
@@ -95,12 +101,13 @@ fun RepCounterScreen() {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("🏋️  TRAIN", fontSize = 13.sp, fontWeight = FontWeight.Black,
+                Text("TRAIN", fontSize = 13.sp, fontWeight = FontWeight.Black,
                     letterSpacing = 4.sp, color = cs.onBackground)
                 if (selected != null) {
                     Box(Modifier.size(36.dp).clip(CircleShape).background(cs.surface)
                         .clickable { showHowTo = true }, Alignment.Center) {
-                        Text("ⓘ", fontSize = 15.sp, color = cs.onSurfaceVariant)
+                        Icon(Icons.Outlined.Info, contentDescription = "How to",
+                            tint = cs.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -125,9 +132,9 @@ fun RepCounterScreen() {
                         ChipBtn("+$n", Modifier.weight(1f),
                             bg = surfaceVariant, fg = onSurfaceVariant) { hit(n) }
                     }
-                    ChipBtn("↺", Modifier.weight(1f),
+                    ChipBtn("Reset", Modifier.weight(1f),
                         bg = Color(0xFFF43F5E), fg = Color.White) {
-                        count = 0; autoLogShown = false; bumpKey++
+                        count = 0; sessionId = 0L; bumpKey++
                     }
                 }
 
@@ -145,8 +152,9 @@ fun RepCounterScreen() {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (selected != null) {
                             Box(Modifier.size(38.dp).clip(RoundedCornerShape(10.dp))
-                                .background(selected!!.accent.copy(.12f)), Alignment.Center) {
-                                Text(selected!!.emoji, fontSize = 20.sp)
+                                .background(selected!!.accent.copy(.14f)), Alignment.Center) {
+                                Text(selected!!.name.take(1), fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold, color = selected!!.accent)
                             }
                         }
                         Column {
@@ -164,19 +172,18 @@ fun RepCounterScreen() {
             }
         }
 
-        // "Saved" toast
-        if (savedToast) {
+        if (goalToast) {
             Box(Modifier.fillMaxSize().padding(bottom = 120.dp), Alignment.BottomCenter) {
                 Box(Modifier.clip(RoundedCornerShape(20.dp)).background(cs.secondary.copy(.9f))
                     .padding(horizontal = 22.dp, vertical = 11.dp)) {
-                    Text("Saved to log ✓", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    Text("Goal reached · saved", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }
         }
 
         if (showPicker) {
             ExerciseSheet(exerciseGroups, selected,
-                onSelect = { selected = it; count = 0; autoLogShown = false; bumpKey++; showPicker = false },
+                onSelect = { selected = it; count = 0; sessionId = 0L; bumpKey++; showPicker = false },
                 onDismiss = { showPicker = false })
         }
         HowToPanel(selected, showHowTo) { showHowTo = false }

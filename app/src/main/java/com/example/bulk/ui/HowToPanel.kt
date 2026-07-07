@@ -8,6 +8,11 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,12 +27,13 @@ import com.example.bulk.data.ExerciseItem
 
 @Composable
 fun HowToPanel(exercise: ExerciseItem?, visible: Boolean, onClose: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
     AnimatedVisibility(
         visible = visible,
         enter = slideInVertically(tween(360)) { it } + fadeIn(tween(280)),
         exit = slideOutVertically(tween(320)) { it } + fadeOut(tween(220))
     ) {
-        Box(Modifier.fillMaxSize().background(Color.White)) {
+        Box(Modifier.fillMaxSize().background(cs.background)) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -38,18 +44,27 @@ fun HowToPanel(exercise: ExerciseItem?, visible: Boolean, onClose: () -> Unit) {
             ) {
                 if (exercise == null) return@Column
 
-                // Accent pill
                 Box(
                     Modifier.size(width = 32.dp, height = 4.dp)
                         .clip(RoundedCornerShape(2.dp)).background(exercise.accent)
                 )
                 Spacer(Modifier.height(12.dp))
 
-                Text(exercise.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                Text(exercise.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = cs.onBackground)
+
+                Spacer(Modifier.height(20.dp))
+                SLabel("MUSCLES ACTIVATED")
+                Spacer(Modifier.height(10.dp))
+                Box(
+                    Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(cs.surface)
+                        .padding(vertical = 16.dp),
+                    Alignment.Center
+                ) { MuscleMap(exercise.key, exercise.accent) }
 
                 Spacer(Modifier.height(20.dp))
 
-                // YouTube link
                 val ctx = LocalContext.current
                 val url = "https://www.youtube.com/results?search_query=" + Uri.encode(exercise.videoQuery)
                 Row(
@@ -66,10 +81,13 @@ fun HowToPanel(exercise: ExerciseItem?, visible: Boolean, onClose: () -> Unit) {
                     Box(
                         Modifier.size(36.dp).clip(CircleShape).background(exercise.accent),
                         contentAlignment = Alignment.Center
-                    ) { Text("▶", fontSize = 12.sp, color = Color.White) }
+                    ) {
+                        Icon(Icons.Rounded.PlayArrow, contentDescription = null,
+                            tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
                     Column {
-                        Text("Watch on YouTube", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E293B))
-                        Text("See proper form", fontSize = 12.sp, color = Color(0xFF94A3B8))
+                        Text("Watch on YouTube", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = cs.onSurface)
+                        Text("See proper form", fontSize = 12.sp, color = cs.onSurfaceVariant)
                     }
                 }
 
@@ -78,8 +96,9 @@ fun HowToPanel(exercise: ExerciseItem?, visible: Boolean, onClose: () -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 exercise.steps.forEachIndexed { i, step ->
                     Row(Modifier.padding(bottom = 10.dp)) {
-                        Text("${i + 1}.", fontSize = 14.sp, color = Color(0xFFCBD5E1), fontWeight = FontWeight.Bold, modifier = Modifier.width(26.dp))
-                        Text(step, fontSize = 14.sp, color = Color(0xFF475569), lineHeight = 21.sp)
+                        Text("${i + 1}.", fontSize = 14.sp, color = cs.outline,
+                            fontWeight = FontWeight.Bold, modifier = Modifier.width(26.dp))
+                        Text(step, fontSize = 14.sp, color = cs.onSurfaceVariant, lineHeight = 21.sp)
                     }
                 }
 
@@ -94,7 +113,6 @@ fun HowToPanel(exercise: ExerciseItem?, visible: Boolean, onClose: () -> Unit) {
                 InfoBox(exercise.formCheck)
             }
 
-            // Close button
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
@@ -102,11 +120,12 @@ fun HowToPanel(exercise: ExerciseItem?, visible: Boolean, onClose: () -> Unit) {
                     .padding(20.dp)
                     .size(50.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF1E293B))
+                    .background(cs.onBackground)
                     .clickable { onClose() },
                 contentAlignment = Alignment.Center
             ) {
-                Text("✕", fontSize = 15.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                Icon(Icons.Rounded.Close, contentDescription = "Close",
+                    tint = cs.background, modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -114,18 +133,20 @@ fun HowToPanel(exercise: ExerciseItem?, visible: Boolean, onClose: () -> Unit) {
 
 @Composable
 private fun SLabel(text: String) {
-    Text(text, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp, color = Color(0xFF94A3B8))
+    Text(text, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
 private fun InfoBox(text: String) {
+    val cs = MaterialTheme.colorScheme
     Box(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFF8FAFC))
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+            .background(cs.surface)
+            .border(1.dp, cs.outlineVariant, RoundedCornerShape(12.dp))
             .padding(14.dp)
     ) {
-        Text(text, fontSize = 14.sp, color = Color(0xFF475569), lineHeight = 21.sp)
+        Text(text, fontSize = 14.sp, color = cs.onSurfaceVariant, lineHeight = 21.sp)
     }
 }

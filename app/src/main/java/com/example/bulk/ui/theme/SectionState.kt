@@ -24,6 +24,7 @@ object SectionState {
         showCalendar        = p.getBoolean("show_calendar",       true)
         usePlayPauseButtons = p.getBoolean("use_play_pause",      false)
         dailyGoal           = p.getInt("daily_goal",              10_000)
+        AppThemeState.isDarkMode = p.getBoolean("dark_mode",      false)
     }
 
     fun save(ctx: Context) {
@@ -34,6 +35,7 @@ object SectionState {
             .putBoolean("show_calendar",  showCalendar)
             .putBoolean("use_play_pause", usePlayPauseButtons)
             .putInt("daily_goal",         dailyGoal)
+            .putBoolean("dark_mode",      AppThemeState.isDarkMode)
             .apply()
     }
 }

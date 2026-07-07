@@ -45,7 +45,9 @@ class StepTrackerService : Service(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var activeSensor: Sensor?  = null
     private var usingDetector          = false   // true when falling back to step_detector
+    private var needsWakeLock          = false   // only the non-wake-up fallback needs CPU held
     private var wakeLock: PowerManager.WakeLock? = null
+    private var lastUiUpdateMs         = 0L
 
     private var sessionBaseline    = -1L
     private var pauseOffset        = 0
@@ -71,22 +73,23 @@ class StepTrackerService : Service(), SensorEventListener {
         val sm = sensorManager ?: return null
         // Try wake-up step counter (API 21+)
         sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER, true)?.let {
-            usingDetector = false; return it
+            usingDetector = false; needsWakeLock = false; return it
         }
         // Try wake-up step detector
         sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR, true)?.let {
-            usingDetector = true; return it
+            usingDetector = true; needsWakeLock = false; return it
         }
         // Fall back to non-wake-up step counter
         sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)?.let {
-            usingDetector = false; return it
+            usingDetector = false; needsWakeLock = true; return it
         }
         return null
     }
 
     private fun registerSensor() {
         val sensor = activeSensor ?: return
-        sensorManager?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_FASTEST)
+        // Small FIFO batching window so steps surface within ~1 s instead of bursting every 5 s.
+        sensorManager?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI, 1_000_000)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -149,6 +152,7 @@ class StepTrackerService : Service(), SensorEventListener {
         acquireWakeLock()
         registerSensor()
         StepTrackerWatchdog.schedule(this)
+        StepTrackerRestartReceiver.scheduleHeartbeat(this)
         val notif = buildNotification()
         if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIF_ID, notif, 0x00000100)
         else startForeground(NOTIF_ID, notif)
@@ -173,6 +177,7 @@ class StepTrackerService : Service(), SensorEventListener {
         if (!_isPaused.value) acquireWakeLock()
         registerSensor()
         StepTrackerWatchdog.schedule(this)
+        StepTrackerRestartReceiver.scheduleHeartbeat(this)
         val notif = buildNotification()
         if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIF_ID, notif, 0x00000100)
         else startForeground(NOTIF_ID, notif)
@@ -186,12 +191,14 @@ class StepTrackerService : Service(), SensorEventListener {
                 _segStartMs.value = 0L
             }
             _isPaused.value = true
+            sensorManager?.unregisterListener(this)
             releaseWakeLock()
         } else {
             pauseOffset       = sessionSensorSteps
             sessionBaseline   = -1L
             _segStartMs.value = SystemClock.elapsedRealtime()
             _isPaused.value   = false
+            registerSensor()
             acquireWakeLock()
         }
         saveState()
@@ -215,6 +222,7 @@ class StepTrackerService : Service(), SensorEventListener {
         sessionBaseline = -1L; pauseOffset = 0; sessionSensorSteps = 0; todayBase = 0
         clearState()
         StepTrackerWatchdog.cancel(this)
+        StepTrackerRestartReceiver.cancelHeartbeat(this)
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
@@ -246,8 +254,7 @@ class StepTrackerService : Service(), SensorEventListener {
             if (event.sensor.type != Sensor.TYPE_STEP_DETECTOR) return
             sessionSensorSteps++
             _steps.value = todayBase + sessionSensorSteps
-            saveState()
-            updateNotification()
+            throttledPersist()
         } else {
             if (event.sensor.type != Sensor.TYPE_STEP_COUNTER) return
             val raw = event.values[0].toLong()
@@ -256,10 +263,18 @@ class StepTrackerService : Service(), SensorEventListener {
             if (newSession != sessionSensorSteps) {
                 sessionSensorSteps = newSession
                 _steps.value = todayBase + sessionSensorSteps
-                saveState()
-                updateNotification()
+                throttledPersist()
             }
         }
+    }
+
+    /** Disk writes + notification re-posts at most once per second — the UI reads the StateFlow live anyway. */
+    private fun throttledPersist() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastUiUpdateMs < 1_000L) return
+        lastUiUpdateMs = now
+        saveState()
+        updateNotification()
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -267,7 +282,7 @@ class StepTrackerService : Service(), SensorEventListener {
     // ── WakeLock ─────────────────────────────────────────────────────────────
 
     private fun acquireWakeLock() {
-        if (wakeLock?.isHeld == true) return
+        if (!needsWakeLock || wakeLock?.isHeld == true) return
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "bulk:StepTracker")
             .also { it.acquire(4 * 60 * 60 * 1000L) } // max 4 hours
@@ -310,13 +325,25 @@ class StepTrackerService : Service(), SensorEventListener {
         val stopPi = PendingIntent.getService(this, 2,
             Intent(this, StepTrackerService::class.java).apply { action = ACTION_STOP },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val activeElapsedMs = _accActiveMs.value +
+            (if (_segStartMs.value > 0L) SystemClock.elapsedRealtime() - _segStartMs.value else 0L)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_directions)
-            .setContentTitle(if (paused) "Walk Paused" else "Walking — $n steps today")
+            .setContentTitle(if (paused) "Walk Paused" else "Walking · $n steps today")
             .setContentText("Session: $sessionSensorSteps steps · ${String.format("%.2f", distKm)} km")
             .setContentIntent(openPi).setOngoing(true).setSilent(true)
             .addAction(0, if (paused) "Resume" else "Pause", pausePi)
-            .addAction(0, "Stop & Save", stopPi).build()
+            .addAction(0, "Stop & Save", stopPi)
+        if (!paused) {
+            // Chronometer is ticked live by the system UI every second — no per-second
+            // service wakeups needed, same mechanism stopwatch/timer apps rely on.
+            builder.setUsesChronometer(true)
+                .setWhen(System.currentTimeMillis() - activeElapsedMs)
+                .setShowWhen(true)
+        } else {
+            builder.setUsesChronometer(false).setShowWhen(false)
+        }
+        return builder.build()
     }
 
     private fun updateNotification() {

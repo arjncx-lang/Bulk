@@ -59,7 +59,7 @@ fun WorkoutScreen(onBack: () -> Unit) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("💪  LOG", fontSize = 13.sp, fontWeight = FontWeight.Black,
+                Text("LOG", fontSize = 13.sp, fontWeight = FontWeight.Black,
                     letterSpacing = 4.sp, color = cs.onBackground)
                 Box(Modifier.size(36.dp).clip(CircleShape).background(cs.secondary)
                     .clickable { showLog = true }, Alignment.Center) {

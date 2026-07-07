@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent { BulkTheme { AppNavHost() } }
     }
+
 }
 
 private enum class Tab { STEPS, TRAIN, WORKOUT, CALENDAR, SETTINGS }

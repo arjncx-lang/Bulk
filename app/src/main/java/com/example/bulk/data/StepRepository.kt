@@ -58,6 +58,15 @@ class StepRepository(private val context: Context) {
         persist(loadAll().filter { it.dateKey != dateKey })
     }
 
+    /** Merge imported entries: existing ids win, new ids are added. Returns count added. */
+    fun merge(imported: List<StepEntry>): Int {
+        val existing = loadAll()
+        val ids = existing.map { it.id }.toHashSet()
+        val fresh = imported.filter { it.id !in ids }
+        if (fresh.isNotEmpty()) persist((existing + fresh).sortedByDescending { it.id })
+        return fresh.size
+    }
+
     // ── Aggregations ─────────────────────────────────────────────────────────
 
     fun groupByDay(): List<DayStepSummary> =

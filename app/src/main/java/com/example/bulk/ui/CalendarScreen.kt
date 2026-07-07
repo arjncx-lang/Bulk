@@ -61,7 +61,7 @@ fun CalendarScreen(onBack: () -> Unit) {
 
     Column(Modifier.fillMaxSize().background(cs.background).systemBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp)) {
-            Text("📅  CALENDAR", fontSize = 13.sp, fontWeight = FontWeight.Black,
+            Text("CALENDAR", fontSize = 13.sp, fontWeight = FontWeight.Black,
                 letterSpacing = 4.sp, color = cs.onBackground)
         }
 

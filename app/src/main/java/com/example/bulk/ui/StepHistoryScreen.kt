@@ -342,7 +342,7 @@ private fun DayStepCard(day: DayStepSummary, cs: ColorScheme, goal: Int, onEdit:
                 Box(Modifier.clip(RoundedCornerShape(6.dp))
                     .background(cs.secondary.copy(0.1f))
                     .padding(horizontal = 8.dp, vertical = 3.dp)) {
-                    Text("Goal reached ⭐", fontSize = 10.sp, color = cs.secondary,
+                    Text("Goal reached", fontSize = 10.sp, color = cs.secondary,
                         fontWeight = FontWeight.SemiBold)
                 }
             }

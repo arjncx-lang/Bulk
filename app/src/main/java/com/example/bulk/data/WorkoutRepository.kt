@@ -54,6 +54,23 @@ class WorkoutRepository(private val context: Context) {
         persist(loadAll().map { if (it.id == updated.id) updated else it })
     }
 
+    /** Insert or replace by id — used for live rep logging so every rep is on disk. */
+    fun upsertLog(log: WorkoutLog) {
+        val list = loadAll().toMutableList()
+        val i = list.indexOfFirst { it.id == log.id }
+        if (i >= 0) list[i] = log else list.add(0, log)
+        persist(list)
+    }
+
+    /** Merge imported logs: existing ids win, new ids are added. Returns count added. */
+    fun merge(imported: List<WorkoutLog>): Int {
+        val existing = loadAll()
+        val ids = existing.map { it.id }.toHashSet()
+        val fresh = imported.filter { it.id !in ids }
+        if (fresh.isNotEmpty()) persist((existing + fresh).sortedByDescending { it.timestamp })
+        return fresh.size
+    }
+
     fun deleteLog(id: Long) {
         persist(loadAll().filter { it.id != id })
     }

@@ -149,7 +149,7 @@ fun StepTrackerScreen(onHistory: () -> Unit) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("👣  STEPS", fontSize = 13.sp, fontWeight = FontWeight.Black,
+                Text("STEPS", fontSize = 13.sp, fontWeight = FontWeight.Black,
                     letterSpacing = 4.sp, color = cs.onBackground)
                 Box(Modifier.size(36.dp).clip(CircleShape).background(cs.surface)
                     .clickable { onHistory() }, Alignment.Center) {
@@ -176,10 +176,10 @@ fun StepTrackerScreen(onHistory: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("⚡ Allow background usage in Battery settings",
+                    Text("Allow background usage in Battery settings",
                         fontSize = 12.sp, color = Color(0xFF7A5800),
                         fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    Text("Fix →", fontSize = 12.sp, color = Color(0xFF7A5800),
+                    Text("Fix", fontSize = 12.sp, color = Color(0xFF7A5800),
                         fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(8.dp))
@@ -218,16 +218,9 @@ fun StepTrackerScreen(onHistory: () -> Unit) {
                                     contentDescription = null, tint = ringColor,
                                     modifier = Modifier.size(32.dp))
                                 Spacer(Modifier.height(4.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center) {
-                                    Text("$displaySteps",
-                                        fontSize = 58.sp, fontWeight = FontWeight.Bold, lineHeight = 58.sp,
-                                        color = if (displaySteps == 0 && !isRunning) cs.outline else ringColor)
-                                    if (displaySteps >= (goal * 1.2).toInt())
-                                        Text(" 🔥", fontSize = 26.sp, modifier = Modifier.padding(start = 4.dp))
-                                    else if (displaySteps >= goal)
-                                        Text(" ⭐", fontSize = 26.sp, modifier = Modifier.padding(start = 4.dp))
-                                }
+                                Text("$displaySteps",
+                                    fontSize = 58.sp, fontWeight = FontWeight.Bold, lineHeight = 58.sp,
+                                    color = if (displaySteps == 0 && !isRunning) cs.outline else ringColor)
                                 Text("steps today", fontSize = 12.sp, color = cs.onSurfaceVariant)
                                 Spacer(Modifier.height(6.dp))
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -246,8 +239,8 @@ fun StepTrackerScreen(onHistory: () -> Unit) {
                                 Spacer(Modifier.height(4.dp))
                                 Text(
                                     when {
-                                        displaySteps >= (goal * 1.2).toInt() -> "${displaySteps - goal} beyond goal 🔥"
-                                        displaySteps >= goal -> "Daily goal reached! ⭐"
+                                        displaySteps >= (goal * 1.2).toInt() -> "${displaySteps - goal} beyond goal"
+                                        displaySteps >= goal -> "Daily goal reached"
                                         displaySteps > 0    -> "${goal - displaySteps} steps to daily goal"
                                         else                -> "Goal: $goal steps"
                                     },
@@ -335,11 +328,6 @@ fun StepTrackerScreen(onHistory: () -> Unit) {
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(cs.primary)
             .clickable { onRequest() }.padding(vertical = 14.dp), Alignment.Center) {
             Text("Grant Permission", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White) } }
-
-@Composable fun CircleIconBtnS(icon: String, onClick: () -> Unit) =
-    Box(Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface)
-        .clickable { onClick() }, Alignment.Center) {
-        Text(icon, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 
 @Composable private fun EditStepsDialog(current: Int, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
     var text by remember { mutableStateOf(current.toString()) }
